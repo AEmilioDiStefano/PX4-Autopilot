@@ -1,14 +1,14 @@
 # NXP MR-NavQ95
 
-<Badge type="tip" text="PX4 main" />
+<Badge type="tip" text="main (PX4 v2.0)" />
 
 ::: warning
 PX4 does not manufacture this (or any) autopilot.
 Contact the [manufacturer](https://www.nxp.com) for hardware support (https://community.nxp.com/) or compliance issues.
 :::
 
-The _MR-NavQ95_ is a vehicle computer reference design designed around the NXP i.MX95 developed by NXP Mobile Robotics.
-Linux runs on the Cortex-A55 cores, and PX4 runs on the Cortex-M7 real-time core, started by MCUboot from the on-board NOR flash.
+The _MR-NavQ95_ is a vehicle computer reference design from NXP Mobile Robotics, built around the NXP i.MX 95.
+Linux runs on the Cortex-A55 cores, and PX4 runs on the Cortex-M7 real-time core, started by MCUboot from the on-board octal NOR flash.
 The two sides talk over RPMsg: PX4 keeps its parameters, dataman and logs on a filesystem served by Linux, and exposes its shell and a MAVLink link as virtual ttys on the Linux side.
 
 ![MR-NavQ95 Overview](../../assets/flight_controller/nxp_mr-navq95/mr-navq95b-overview.png)
@@ -73,7 +73,7 @@ See the [MR-NAVQ95 repository](https://github.com/NXP-Robotics/MR-NAVQ95) for av
 
 LPUART2 is the M7 console port: it reaches the CP2105 USB serial bridge on the IO board (J1 CONSOLE, `ttyUSB1` on a Linux host) and the main board J2 CONSOLE header (pins 4 and 5).
 It is the RC input by default, and the board configuration ("LPUART2" under MR-NavQ95 board options in `make nxp_mr-navq95_default boardconfig`) can run an NSH console on it instead.
-An RC receiver (CRSF, ELRS, SBUS) connects to J2 CONSOLE: pin 1 is 5 V, pin 4 is UART2 RX (receiver TX), pin 5 is UART2 TX (receiver RX, only needed for bidirectional protocols such as CRSF telemetry) and pin 6 is GND.
+An RC receiver (CRSF, ELRS, SBUS) connects to J2 CONSOLE: pin 1 is 5 V, pin 4 is UART2 RX (receiver TX), pin 5 is UART2 TX (receiver RX, only needed for bidirectional protocols such as CRSF telemetry) and pin 6 is GND; UART2 is the schematic name for the LPUART2 pins.
 UART2 TX is also the BT_MODE1 boot strap, so nothing may drive that line while the board resets.
 
 ::: warning
@@ -113,7 +113,7 @@ PX4 has no local storage.
 
 ::: warning
 This means PX4 depends on Linux for parameter storage: the parameters are only readable and writable once the Linux side has booted and the rpmsgfs server is running.
-Keeping the parameters on the on-board octal flash instead, so the M7 is self-contained, is still work in progress (see [Current Status](#current-status)).
+Keeping the parameters on the on-board octal NOR flash instead, so the M7 is self-contained, is still work in progress (see [Current Status](#current-status)).
 :::
 
 ### MAVLink and QGroundControl
@@ -155,7 +155,7 @@ The `ddr` label (`make nxp_mr-navq95_ddr`) runs from SDRAM and is loaded by Linu
 
 ### Signing With a Key
 
-The default image carries only a SHA256 and boots on an MCUboot built with `CONFIG_BOOT_SIGNATURE_TYPE_NONE`.
+The default image carries only a SHA256 trailer and boots on an MCUboot built with `CONFIG_BOOT_SIGNATURE_TYPE_NONE`.
 For an MCUboot that verifies signatures, generate a key, pass it in the environment when configuring the build, and bake the matching public key into MCUboot:
 
 ```sh
@@ -172,7 +172,7 @@ Keep the private key out of the repository.
 
 ::: info
 MCUboot boots PX4 from slot0 reliably, but the update path is still a developer flow over SWD.
-A convenient field update (image upload through Linux into slot1 and a MCUboot swap) is not in place yet; see [Current Status](#current-status).
+A convenient field update (image upload through Linux into slot1 and an MCUboot swap) is not in place yet; see [Current Status](#current-status).
 :::
 
 The firmware is flashed into MCUboot slot0 over SWD with pyOCD.
@@ -198,7 +198,7 @@ pyocd reset -t mimx95_cm33 -f 20M
 - The debugger-initiated reset after flashing (`pyocd reset -t mimx95_cm33`) does not chain-load slot0: MCUboot stays in its serial-recovery loop ("Unable to find bootable image") even though the image in slot0 is valid.
   Power-cycle the board to boot PX4 from slot0.
 
-## Debug Port
+## Debug Port {#debug_port}
 
 The PX4 [system console](../debug/system_console.md) is `/dev/ttynsh` on the Linux side; there is no dedicated console UART.
 The M7 core is reachable over the on-board SWD/JTAG probe through pyOCD (`pyocd gdb -t mimx95_cm7_mx25um`).
@@ -213,13 +213,13 @@ Known gaps at the time of writing:
   There is no Linux-side updater or serial-recovery flow yet, so updating PX4 still needs a debug probe and the boot switches set for flashing.
 - **Parameter and log storage.**
   Parameters, dataman and logs live on the RPMsg filesystem served by Linux.
-  Moving the parameter storage to the on-board octal (NOR) flash, so that PX4 can boot and arm independently of the Linux side, is in progress.
+  Moving the parameter storage to the on-board octal NOR flash, so that PX4 can boot and arm independently of the Linux side, is in progress.
 - **Virtual Ethernet for PX4.**
   All networking is handled by Linux today; PX4 reaches the network only indirectly through the RPMsg MAVLink tty and mavlink-router.
   A VSI (virtual station interface) network driver for PX4/NuttX is in progress, which would give PX4 its own virtual Ethernet interface on the shared MAC.
   With that in place, MAVLink over UDP, [uXRCE-DDS](../middleware/uxrce_dds.md), [Zenoh-pico](../middleware/zenoh.md) and native ROS 2 publishing can run directly from the M7 instead of being proxied by Linux.
 - **Reboot.**
-  The `reboot` command, `MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN` and the reboot QGroundControl requests after calibration or airframe selection do not restart the M7 yet; power-cycle the board instead.
+  The `reboot` command, `MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN` and the reboot that _QGroundControl_ requests after calibration or airframe selection do not restart the M7 yet; power-cycle the board instead.
   An M7 reset through the i.MX 95 System Manager is planned.
 - **PWM timing and input capture.**
   Output group 1 (TPM3) runs from a 133 MHz clock root and OneShot is not supported yet; the PWM timing code is being reworked, and PWM input capture is not available.
