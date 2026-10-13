@@ -3965,7 +3965,7 @@ $ mavlink stream -u 14556 -s HIGHRES_IMU -r 50
 	PRINT_MODULE_USAGE_PARAM_FLAG('x', "Enable FTP", true);
 	PRINT_MODULE_USAGE_PARAM_FLAG('z', "Force hardware flow control always on", true);
 	PRINT_MODULE_USAGE_PARAM_FLAG('Z', "Force hardware flow control always off", true);
-	PRINT_MODULE_USAGE_PARAM_FLAG('a', "UART Raw mode", true);
+	PRINT_MODULE_USAGE_PARAM_FLAG('a', "Enable UART raw mode (8N1, no input/output processing)", true);
 
 	PRINT_MODULE_USAGE_COMMAND_DESCR("stop-all", "Stop all instances");
 
